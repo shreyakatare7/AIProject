@@ -3,14 +3,14 @@ import pandas as pd
 # load csv file 
 df = pd.read_csv('lung cancer survey.csv')
 
-# handling missing values (make sure your column names match the dataset)
+# handling missing values 
 df.fillna({"SMOKING": 1, "YELLOW_FINGERS": 1, "ANXIETY": 1, "PEER_PRESSURE": 1, 
            "CHRONIC DISEASE": 1, "FATIGUE": 1, "ALLERGY": 1, "WHEEZING": 1, 
            "ALCOHOL CONSUMING": 1, "COUGHING": 1, "SHORTNESS OF BREATH": 1, 
            "SWALLOWING DIFFICULTY": 1, "CHEST PAIN": 1, "LUNG CANCER": "NO"}, inplace=True)
 
 df.columns = df.columns.str.strip()
-# converting rows of dataset into facts (ensure the column names are consistent)
+# converting rows of dataset into facts 
 def process_row_to_facts(row):
     return {
         "SMOKING": row["SMOKING"],
@@ -32,7 +32,7 @@ def process_row_to_facts(row):
 # convert the entire dataset into facts
 facts_list = [process_row_to_facts(row) for index, row in df.iterrows()]
 
-# mapping categorical symptom data to boolean values (if applicable)
+# mapping categorical symptom data to boolean values 
 df["LUNG_CANCER"] = df["LUNG_CANCER"].map({"YES": True, "NO": False})
 
 # define the rule-based system
