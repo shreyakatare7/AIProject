@@ -32,9 +32,6 @@ def process_row_to_facts(row):
 # convert the entire dataset into facts
 facts_list = [process_row_to_facts(row) for index, row in df.iterrows()]
 
-# mapping categorical symptom data to boolean values 
-df["LUNG_CANCER"] = df["LUNG_CANCER"].map({"YES": True, "NO": False})
-
 # define the rule-based system
 class RuleBasedSystem:
     def __init__(self):
@@ -60,14 +57,19 @@ def diagnose_no_cancer(facts):
 
 # rule conditions
 def rule_lung_cancer(facts):
-    # Triggers when certain symptoms are present
-    return (facts["SMOKING"] == 2 or facts["YELLOW_FINGERS"] == 2 or 
-            facts["CHEST_PAIN"] == 2 or facts["COUGHING"] == 2)
+    # triggers when certain symptoms are present
+    return (facts["SMOKING"] == 2 and (facts["COUGHING"] == 2 or facts["CHEST_PAIN"] == 2) and
+            facts["WHEEZING"] == 2)
 
 def rule_no_lung_cancer(facts):
-    # Triggers when symptoms are mild
-    return (facts["SMOKING"] == 1 or facts["YELLOW_FINGERS"] == 1 or
-            facts["ANXIETY"] == 1)
+    # triggers when symptoms are mild
+    return (facts["SMOKING"] == 1 and facts["COUGHING"] == 1 and 
+            facts["CHEST_PAIN"] == 1 and facts["WHEEZING"] == 1)
+
+def rule_ambiguous(facts):
+    # triggers when symptoms are mixed or ambiguous
+    return (facts["SMOKING"] == 2 and facts["COUGHING"] == 1 and
+            facts["CHEST_PAIN"] == 1 and facts["SHORTNESS_BREATH"] == 2)
 
 # create the rule-based system
 system = RuleBasedSystem()
@@ -75,18 +77,28 @@ system = RuleBasedSystem()
 # add rules
 system.add_rule(rule_lung_cancer, diagnose_lung_cancer)
 system.add_rule(rule_no_lung_cancer, diagnose_no_cancer)
+system.add_rule(rule_ambiguous, lambda facts: "No diagnosis made")
 
 # apply the rules to each row in the dataset
 results = []
 deep_learning_cases = [] # collect cases with "No diagosis made" for deep learning
+correct_predictions = 0
+total_predictions = 0
 
 for index, row in df.iterrows():
     facts = process_row_to_facts(row)
     diagnosis = system.evaluate(facts)
     
-    # If no diagnosis is made, flag for deep learning
+    # if no diagnosis is made, flag for deep learning
     if diagnosis == "No diagnosis made":
-        deep_learning_cases.append(facts)  # Collect cases for deep learning
+        deep_learning_cases.append(index)  # collect cases for deep learning
+    else:
+        # compare the diagnosis with actual lung cancer result
+        actual = row["LUNG_CANCER"]
+        if (diagnosis == "Lung Cancer Diagnosed" and actual == "YES") or \
+           (diagnosis == "No Lung Cancer" and actual == "NO"):
+            correct_predictions += 1
+        total_predictions += 1
     
     results.append(diagnosis)
 
@@ -96,5 +108,12 @@ print(df[["SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE", "CHRONIC DISE
           "WHEEZING", "ALCOHOL CONSUMING", "COUGHING", "SHORTNESS OF BREATH", "SWALLOWING DIFFICULTY", 
           "CHEST PAIN", "DIAGNOSIS_RESULT"]])
 
-# Print cases that need deep learning for further analysis
+# calculate accuracy
+if total_predictions > 0:
+    accuracy = correct_predictions / total_predictions
+    print(f"Accuracy: {accuracy:.2%}")
+else:
+    print("No cases diagnosed to calculate accuracy.")
+
+# print cases that need deep learning for further analysis
 print(f"Cases sent to deep learning: {deep_learning_cases}")
