@@ -29,9 +29,6 @@ def process_row_to_facts(row):
         "LUNG_CANCER": row["LUNG_CANCER"]
     }
 
-# convert the entire dataset into facts
-facts_list = [process_row_to_facts(row) for index, row in df.iterrows()]
-
 # define the rule-based system
 class RuleBasedSystem:
     def __init__(self):
