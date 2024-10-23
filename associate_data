@@ -1,0 +1,41 @@
+import pandas as pd
+import os
+
+# Directories where the images are stored
+base_dir = 'c:\\Users\\katar\\OneDrive\\Documents\\AI Project'
+folders = ['train', 'test', 'valid']
+
+# Function to scan for image files in each category and subdirectory
+def scan_image_files():
+    image_data = []
+    
+    for folder in folders:
+        for category in ['Benign Cases', 'Malignant Cases', 'normal']:
+            category_path = os.path.join(base_dir, folder, category)
+            for filename in os.listdir(category_path):
+                if filename.endswith(".jpg") or filename.endswith(".png"):
+                    image_path = os.path.join(category_path, filename)
+                    # Collect image data: path, category (benign, malignant, normal), and folder (train, test, valid)
+                    image_data.append({
+                        "Image_Path": image_path,
+                        "Category": category,
+                        "Folder": folder
+                    })
+    
+    return pd.DataFrame(image_data)
+
+# Scan the directories for image files
+image_df = scan_image_files()
+
+# Print out the structure
+print(image_df.head())  # See a preview of image paths and categories
+
+# Add a row number to patient data for easy referencing
+df_patient = pd.read_csv('lung cancer survey.csv')
+df_patient['Row_Number'] = df_patient.index
+
+# Merge the patient data with the image data based on diagnosis or other criteria
+merged_df = pd.merge(df_patient, image_df, left_on='LUNG_CANCER', right_on='Category', how='left')
+
+# Now the merged_df contains both patient data and their corresponding image paths
+print(merged_df.head())
