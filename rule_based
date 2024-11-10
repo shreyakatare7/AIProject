@@ -1,4 +1,14 @@
 import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.utils.class_weight import compute_class_weight
+import tensorflow as tf
+from keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input, Dropout, Flatten
+
 
 # load csv file 
 df = pd.read_csv('lung cancer survey.csv')
@@ -114,3 +124,98 @@ else:
 
 # print cases that need deep learning for further analysis
 print(f"Cases sent to deep learning: {deep_learning_cases}")
+
+df["LUNG_CANCER"] = df["LUNG_CANCER"].map({"YES":True, "NO":False})
+#Create dataframe with deep learning cases
+deep_learning_df = df[df['DIAGNOSIS_RESULT'] == "No diagnosis made"].copy()
+deep_learning_df["LUNG_CANCER"] = deep_learning_df["LUNG_CANCER"].map({True: 1, False: 0})
+
+#deep learning model using tensorflow
+
+
+#assigning the features and the the labels
+#X being the values to be tested and y being what the expected value should be
+X = deep_learning_df.drop(columns=['DIAGNOSIS_RESULT', 'LUNG_CANCER', 'GENDER', 'AGE'])
+y = deep_learning_df['LUNG_CANCER']
+print(deep_learning_df)
+
+
+le = LabelEncoder()
+y = le.fit_transform(y)
+
+
+#Splitting the train set and the test set with 25% of data used for test
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size = .25, random_state=42)
+
+#adding a class weight to cause more loss in the model if a false value is guessed wrong
+#this is because there are more true values for lung cancer than false in the dataset which causes the model to skew towards true
+class_weight = compute_class_weight('balanced', classes = np.unique(y_train), y =y_train)
+class_weight = dict(enumerate(class_weight))
+
+#adding layers to the neural network
+model = Sequential()
+model.add(Dense(units=16, activation='relu', input_shape=(X.shape[1],)))
+#model.add(Dropout(0.2))
+model.add(Dense(units=8, activation='relu'))
+#model.add(Dropout(0.2))
+model.add(Dense(1,activation='sigmoid'))
+
+
+
+#Preparing the model for training with the optimizer as Adam and binary crossentropy for the 2 values that the prediction can be
+model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.summary()
+
+
+#training the actual model
+model.fit(x_train,y_train, batch_size=20, epochs=10,class_weight = class_weight)
+
+test_loss, test_accuracy = model.evaluate(x_test, y_test)
+print(f"Deep learning model test accuracy: {test_accuracy*100:.2f}%")
+
+#new prediction model for updating the dataset as the model predicts
+#Normally predictions are made on a portion of the data set this is so every row has a prediction 
+for i in X.index:
+    data = X.loc[[i]]
+
+    prediction = model.predict(data)
+
+    predicted = int(prediction[0,0] > 0.5)       #based on the prediction if it is greater than 0.5 predicts 1 otherwise 0 
+
+    deep_learning_df.at[i, 'DIAGNOSIS_RESULT'] = 'Lung Cancer Diagnosed' if predicted == 1 else 'No Lung Cancer'     #adds the predition back into the dataframe
+
+
+
+#Prediction to show accuracy of model
+prediction = model.predict(x_test, batch_size=32)
+
+predicted = (prediction>0.5).astype(int)
+
+actual = y_test.flatten()
+
+#Accuracy of predictions
+ac_score = accuracy_score(actual, predicted)
+print(f"Prediction accuracy score: {ac_score*100:.2f}%") 
+
+
+
+#drop all rows with no diagnosis made in orginal dataframe
+drop_df = df[df['DIAGNOSIS_RESULT']=="No diagnosis made"].index
+df.drop(drop_df, inplace=True)
+
+#add back the deep learning models predictions
+df = pd.concat([df, deep_learning_df], ignore_index=True)
+
+
+
+#testing the accuracy of the Rule-Based system and deep learning model from the actual results
+correct_diagnosis = ((df['LUNG_CANCER']==True) & (df['DIAGNOSIS_RESULT'] == "Lung Cancer Diagnosed") | (df['LUNG_CANCER']==False) & (df['DIAGNOSIS_RESULT']=="No Lung Cancer")).sum()
+accuracy = correct_diagnosis/len(df)
+
+print(f"Rult-based system and deep learning model accuracy: {accuracy*100:.2f}%")
+
+
+print(df['LUNG_CANCER'].value_counts()) #show how many in dataset have lung cancer and who does not
+# Manually check a few cases
+print(df[['SMOKING', 'CHEST PAIN', 'LUNG_CANCER', 'DIAGNOSIS_RESULT']].head(100))
+
